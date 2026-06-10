@@ -8,12 +8,14 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(PROJECT_ROOT / ".env"),
+        # Both locations work; backend/.env (listed last) wins on conflicts.
+        env_file=(str(PROJECT_ROOT / ".env"), str(BACKEND_DIR / ".env")),
         env_file_encoding="utf-8",
         extra="ignore",
     )
