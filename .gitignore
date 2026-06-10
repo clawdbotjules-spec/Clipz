@@ -1,0 +1,21 @@
+# secrets
+.env
+backend/.env
+
+# data: downloaded videos, rendered clips, caches, sqlite db
+data/
+backend/data/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node
+node_modules/
+frontend/dist/
+
+# misc
+.DS_Store
+*.log
