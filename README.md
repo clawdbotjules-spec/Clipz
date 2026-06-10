@@ -37,14 +37,32 @@ Verify: `ffmpeg -version`
 
 ### 2. Backend
 
+**macOS / Linux:**
+
 ```bash
 cd backend
-python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 cp ../.env.example .env
 # edit .env: set ANTHROPIC_API_KEY (required)
 ```
+
+**Windows (PowerShell):**
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+copy ..\.env.example .env
+notepad .env   # set ANTHROPIC_API_KEY (required)
+```
+
+> If activation fails with "running scripts is disabled on this system", run
+> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` once,
+> then activate again. Your prompt shows `(.venv)` when it worked.
 
 > First transcription downloads the Whisper model (~500MB for `small`). On a
 > machine without a GPU, set `WHISPER_MODEL=base` in `.env` for speed.
