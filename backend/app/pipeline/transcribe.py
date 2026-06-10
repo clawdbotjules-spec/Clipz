@@ -12,10 +12,18 @@ _model = None
 _model_key: tuple[str, str, str] | None = None
 
 
-def _load_model():
+def _is_cuda_lib_error(exc: Exception) -> bool:
+    """CUDA present but its runtime libs missing (e.g. 'cublas64_12.dll not found')."""
+    msg = str(exc).lower()
+    return any(s in msg for s in ("cublas", "cudnn", "cuda", "libcu"))
+
+
+def _load_model(force_cpu: bool = False):
     global _model, _model_key
     settings = get_settings()
-    key = (settings.whisper_model, settings.whisper_device, settings.whisper_compute_type)
+    device = "cpu" if force_cpu else settings.whisper_device
+    compute = "int8" if force_cpu else settings.whisper_compute_type
+    key = (settings.whisper_model, device, compute)
     if _model is None or _model_key != key:
         try:
             from faster_whisper import WhisperModel
@@ -24,11 +32,7 @@ def _load_model():
                 "faster-whisper is not installed. Run: pip install faster-whisper",
                 detail=str(e),
             ) from e
-        _model = WhisperModel(
-            settings.whisper_model,
-            device=settings.whisper_device,
-            compute_type=settings.whisper_compute_type,
-        )
+        _model = WhisperModel(settings.whisper_model, device=device, compute_type=compute)
         _model_key = key
     return _model
 
@@ -54,11 +58,10 @@ def transcribe(
             progress_cb(1.0, "Transcript loaded from cache")
         return json.loads(cache.read_text())
 
-    model = _load_model()
     if progress_cb:
         progress_cb(0.0, "Transcribing (this can take a while on CPU)...")
 
-    try:
+    def _run(model) -> tuple[list[dict[str, Any]], Any]:
         segments_iter, info = model.transcribe(
             media_path,
             word_timestamps=True,
@@ -84,6 +87,19 @@ def transcribe(
                     min(float(seg.end) / duration, 0.99),
                     f"Transcribing... {seg.end / duration * 100:.0f}%",
                 )
+        return segments, info
+
+    try:
+        try:
+            segments, info = _run(_load_model())
+        except Exception as e:
+            if not _is_cuda_lib_error(e):
+                raise
+            # GPU detected but CUDA runtime libs are missing — fall back to CPU
+            # (set WHISPER_DEVICE=cpu in .env to skip this probe on every cold start)
+            if progress_cb:
+                progress_cb(0.0, "CUDA libraries missing — falling back to CPU...")
+            segments, info = _run(_load_model(force_cpu=True))
     except TranscriptionError:
         raise
     except Exception as e:  # model load / decode failures
@@ -93,7 +109,7 @@ def transcribe(
             detail=str(e),
         ) from e
 
-    result = {"segments": segments, "duration": duration, "language": info.language}
+    result = {"segments": segments, "duration": float(info.duration or 0), "language": info.language}
     cache.write_text(json.dumps(result))
     if progress_cb:
         progress_cb(1.0, "Transcription complete")
