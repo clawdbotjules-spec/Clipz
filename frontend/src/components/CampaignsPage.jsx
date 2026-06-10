@@ -5,6 +5,7 @@ const EMPTY = {
   name: '',
   required_hashtags: [],
   required_mentions: [],
+  required_text: [],
   banned_words: [],
   min_clip_seconds: 0,
   max_clip_seconds: 0,
@@ -76,6 +77,15 @@ export default function CampaignsPage() {
             value={editing.required_hashtags} onChange={(v) => setEditing({ ...editing, required_hashtags: v })} />
           <ListInput label="Required @mentions" placeholder="@creator"
             value={editing.required_mentions} onChange={(v) => setEditing({ ...editing, required_mentions: v })} />
+          <div>
+            <label className="label">Required caption text (one phrase per line)</label>
+            <textarea
+              className="input h-20 text-sm"
+              placeholder={'Phrases the post caption must contain, e.g.\nclips from the official podcast\nlink in bio'}
+              value={(editing.required_text || []).join('\n')}
+              onChange={(e) => setEditing({ ...editing, required_text: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
+            />
+          </div>
           <ListInput label="Banned words" placeholder="word1, word2"
             value={editing.banned_words} onChange={(v) => setEditing({ ...editing, banned_words: v })} />
           <div className="flex gap-4">
@@ -122,6 +132,7 @@ export default function CampaignsPage() {
             <div className="text-xs text-gray-400 space-y-1">
               {c.required_hashtags.length > 0 && <div>Hashtags: {c.required_hashtags.join(' ')}</div>}
               {c.required_mentions.length > 0 && <div>Mentions: {c.required_mentions.join(' ')}</div>}
+              {(c.required_text || []).length > 0 && <div>Required text: {c.required_text.map((t) => `"${t}"`).join(', ')}</div>}
               {c.banned_words.length > 0 && <div>Banned: {c.banned_words.join(', ')}</div>}
               <div>
                 Length: {c.min_clip_seconds || 0}s – {c.max_clip_seconds || '∞'}s

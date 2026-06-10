@@ -19,6 +19,7 @@ class CampaignIn(BaseModel):
     name: str
     required_hashtags: list[str] = []
     required_mentions: list[str] = []
+    required_text: list[str] = []
     banned_words: list[str] = []
     min_clip_seconds: float = 0.0
     max_clip_seconds: float = 0.0
@@ -32,6 +33,7 @@ def _to_dict(c: Campaign) -> dict:
         "name": c.name,
         "required_hashtags": c.required_hashtags,
         "required_mentions": c.required_mentions,
+        "required_text": c.required_text,
         "banned_words": c.banned_words,
         "min_clip_seconds": c.min_clip_seconds,
         "max_clip_seconds": c.max_clip_seconds,
@@ -45,6 +47,7 @@ def _apply(c: Campaign, data: CampaignIn) -> None:
     c.name = data.name
     c.required_hashtags_json = json.dumps(data.required_hashtags)
     c.required_mentions_json = json.dumps(data.required_mentions)
+    c.required_text_json = json.dumps(data.required_text)
     c.banned_words_json = json.dumps(data.banned_words)
     c.min_clip_seconds = data.min_clip_seconds
     c.max_clip_seconds = data.max_clip_seconds

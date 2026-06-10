@@ -108,6 +108,7 @@ class Campaign(Base):
     name: Mapped[str] = mapped_column(String)
     required_hashtags_json: Mapped[str] = mapped_column(Text, default="[]")
     required_mentions_json: Mapped[str] = mapped_column(Text, default="[]")
+    required_text_json: Mapped[str] = mapped_column(Text, default="[]")  # phrases the caption must contain
     banned_words_json: Mapped[str] = mapped_column(Text, default="[]")
     min_clip_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     max_clip_seconds: Mapped[float] = mapped_column(Float, default=0.0)  # 0 = no limit
@@ -123,6 +124,10 @@ class Campaign(Base):
     @property
     def required_mentions(self) -> list[str]:
         return json.loads(self.required_mentions_json or "[]")
+
+    @property
+    def required_text(self) -> list[str]:
+        return json.loads(self.required_text_json or "[]")
 
     @property
     def banned_words(self) -> list[str]:
@@ -155,6 +160,22 @@ _engine = None
 SessionLocal: sessionmaker | None = None
 
 
+def _migrate(engine) -> None:
+    """Additive migrations for databases created by earlier versions."""
+    from sqlalchemy import text
+
+    added_columns = {
+        "campaigns": [("required_text_json", "TEXT DEFAULT '[]'")],
+    }
+    with engine.connect() as conn:
+        for table, columns in added_columns.items():
+            existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+            for name, ddl in columns:
+                if existing and name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+        conn.commit()
+
+
 def init_db():
     global _engine, SessionLocal
     if _engine is None:
@@ -165,6 +186,7 @@ def init_db():
         )
         SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
         Base.metadata.create_all(_engine)
+        _migrate(_engine)
     return SessionLocal
 
 

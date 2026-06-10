@@ -19,6 +19,17 @@ export const api = {
   preview: (url) => request('/api/videos/preview', { method: 'POST', body: JSON.stringify({ url }) }),
   process: (payload) => request('/api/videos/process', { method: 'POST', body: JSON.stringify(payload) }),
   batch: (payload) => request('/api/videos/batch', { method: 'POST', body: JSON.stringify(payload) }),
+  uploadVideo: async (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/api/videos/upload', { method: 'POST', body: form })
+    if (!res.ok) {
+      let detail = `Upload failed (${res.status})`
+      try { detail = (await res.json()).detail || detail } catch { /* ignore */ }
+      throw new Error(detail)
+    }
+    return res.json()
+  },
   videos: () => request('/api/videos'),
 
   // jobs

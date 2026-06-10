@@ -127,7 +127,8 @@ interface (`backend/app/posting/`) so they're easy to add later.
 ## Whop clipping features
 
 - **Campaign profiles** — save rule presets: required hashtags, required
-  @mentions, banned words, min/max clip length, watermark image + position.
+  @mentions, required caption text/phrases, banned words, min/max clip length,
+  watermark image + position.
   Every post/export is validated against the clip's campaign and you're warned
   (and blocked, unless you confirm) before posting a non-compliant clip.
 - **Clip tracker** — every clip is logged in SQLite (source video, timestamps,
@@ -143,6 +144,9 @@ interface (`backend/app/posting/`) so they're easy to add later.
 ## Quality of life
 
 - **Batch mode** — paste multiple URLs, they queue up.
+- **Upload mode** — feed it a video file from your computer (mp4/mov/mkv/webm/avi)
+  instead of a YouTube URL; same pipeline, no download step. Files are
+  content-hashed so re-uploading the same file hits every cache.
 - **Time-range mode** — process only minutes X–Y of a long video (required for
   videos over 3 hours).
 - **Aggressive caching** — downloads, transcripts, and Claude analyses are all

@@ -18,6 +18,30 @@ YOUTUBE_URL_RE = re.compile(
     re.VERBOSE,
 )
 
+LOCAL_VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v")
+
+
+def probe_duration(path: str) -> float:
+    """Media duration in seconds via ffprobe."""
+    import subprocess
+
+    from ..errors import ClipForgeError
+
+    cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+           "-of", "csv=p=0", path]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return float(proc.stdout.strip())
+    except FileNotFoundError as e:
+        raise ClipForgeError(
+            "ffprobe (part of ffmpeg) is not installed or not on PATH."
+        ) from e
+    except (subprocess.CalledProcessError, ValueError) as e:
+        raise ClipForgeError(
+            "Couldn't read that video file — it may be corrupt or not a video.",
+            detail=getattr(e, "stderr", str(e)),
+        ) from e
+
 
 def parse_video_id(url: str) -> str | None:
     m = YOUTUBE_URL_RE.match(url.strip())

@@ -30,6 +30,10 @@ def validate_against_campaign(
         if m_norm.lower() not in caption_lower:
             warnings.append(f"Missing required mention {m_norm}")
 
+    for phrase in campaign.required_text:
+        if phrase.lower() not in caption_lower:
+            warnings.append(f"Caption must include the text: \"{phrase}\"")
+
     haystack = f"{caption_lower} {transcript_text.lower()}"
     for word in campaign.banned_words:
         if re.search(rf"\b{re.escape(word.lower())}\b", haystack):

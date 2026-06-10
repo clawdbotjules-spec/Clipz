@@ -10,11 +10,14 @@ function fmtDuration(s) {
 }
 
 export default function IngestPanel({ jobs }) {
-  const [mode, setMode] = useState('single') // single | batch
+  const [mode, setMode] = useState('single') // single | batch | upload
   const [url, setUrl] = useState('')
   const [batchUrls, setBatchUrls] = useState('')
   const [preview, setPreview] = useState(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
+  const [localFile, setLocalFile] = useState(null)      // File chosen from disk
+  const [uploaded, setUploaded] = useState(null)        // server response after upload
+  const [uploading, setUploading] = useState(false)
   const [useRange, setUseRange] = useState(false)
   const [rangeStart, setRangeStart] = useState('')
   const [rangeEnd, setRangeEnd] = useState('')
@@ -48,9 +51,11 @@ export default function IngestPanel({ jobs }) {
   async function submit() {
     setError(''); setSubmitted(false)
     try {
-      if (mode === 'single') {
+      if (mode === 'batch') {
+        const urls = batchUrls.split('\n').map((u) => u.trim()).filter(Boolean)
+        await api.batch({ urls, campaign_id: campaignId ? Number(campaignId) : null, blur_background: blurBg })
+      } else {
         const payload = {
-          url,
           campaign_id: campaignId ? Number(campaignId) : null,
           blur_background: blurBg,
         }
@@ -58,10 +63,27 @@ export default function IngestPanel({ jobs }) {
           payload.start_minute = Number(rangeStart)
           payload.end_minute = Number(rangeEnd)
         }
+        if (mode === 'upload') {
+          let meta = uploaded
+          if (!meta) {
+            setUploading(true)
+            try {
+              meta = await api.uploadVideo(localFile)
+              setUploaded(meta)
+              if (meta.too_long && !(useRange && rangeStart !== '' && rangeEnd !== '')) {
+                setUseRange(true)
+                setError(`File is over ${meta.max_hours}h — pick a time range, then hit the button again.`)
+                return
+              }
+            } finally {
+              setUploading(false)
+            }
+          }
+          payload.video_id = meta.id
+        } else {
+          payload.url = url
+        }
         await api.process(payload)
-      } else {
-        const urls = batchUrls.split('\n').map((u) => u.trim()).filter(Boolean)
-        await api.batch({ urls, campaign_id: campaignId ? Number(campaignId) : null, blur_background: blurBg })
       }
       setSubmitted(true)
     } catch (e) {
@@ -80,9 +102,59 @@ export default function IngestPanel({ jobs }) {
             <button className={mode === 'batch' ? 'btn-primary' : 'btn-ghost'} onClick={() => setMode('batch')}>
               Batch mode
             </button>
+            <button className={mode === 'upload' ? 'btn-primary' : 'btn-ghost'} onClick={() => setMode('upload')}>
+              Upload file
+            </button>
           </div>
 
-          {mode === 'single' ? (
+          {mode === 'upload' && (
+            <>
+              <label className="block border-2 border-dashed border-edge rounded-xl p-6 text-center cursor-pointer hover:border-accent transition-colors">
+                <input
+                  type="file"
+                  accept=".mp4,.mov,.mkv,.webm,.avi,.m4v,video/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    setLocalFile(e.target.files[0] || null)
+                    setUploaded(null)
+                    setError('')
+                  }}
+                />
+                {localFile ? (
+                  <div>
+                    <div className="font-medium">{localFile.name}</div>
+                    <div className="text-sm text-gray-400">
+                      {(localFile.size / 1024 / 1024).toFixed(1)} MB — click to choose a different file
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-400 text-sm">
+                    Click to choose a video file from your computer
+                    <div className="text-xs text-gray-500 mt-1">mp4, mov, mkv, webm, avi</div>
+                  </div>
+                )}
+              </label>
+              {uploaded && (
+                <div className="text-sm text-emerald-400">
+                  Uploaded: {uploaded.title} ({fmtDuration(uploaded.duration)})
+                </div>
+              )}
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={useRange} onChange={(e) => setUseRange(e.target.checked)} />
+                Time-range mode (process only minutes X–Y)
+              </label>
+              {useRange && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span>From minute</span>
+                  <input className="input !w-24" type="number" min="0" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} />
+                  <span>to</span>
+                  <input className="input !w-24" type="number" min="0" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} />
+                </div>
+              )}
+            </>
+          )}
+
+          {mode === 'single' && (
             <>
               <div className="flex gap-2">
                 <input
@@ -127,7 +199,9 @@ export default function IngestPanel({ jobs }) {
                 </div>
               )}
             </>
-          ) : (
+          )}
+
+          {mode === 'batch' && (
             <textarea
               className="input h-40 font-mono"
               placeholder={'One YouTube URL per line...\nhttps://youtube.com/watch?v=...\nhttps://youtube.com/watch?v=...'}
@@ -155,9 +229,14 @@ export default function IngestPanel({ jobs }) {
           <button
             className="btn-primary w-full py-2.5"
             onClick={submit}
-            disabled={mode === 'single' ? !url : !batchUrls.trim()}
+            disabled={
+              uploading
+              || (mode === 'single' && !url)
+              || (mode === 'batch' && !batchUrls.trim())
+              || (mode === 'upload' && !localFile)
+            }
           >
-            Find viral clips
+            {uploading ? 'Uploading...' : 'Find viral clips'}
           </button>
 
           {error && <div className="text-sm text-red-400">{error}</div>}
